@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# NON-PRIVILEGED USER TO RUN MEDIATOMB.
+USER=mediatomb
+
+# MEDIATOMB HOME
+export MEDIATOMB_DIR="`${SERVICETOOL} --get-alive-volume`/MediaTomb"
+
+# PATH TO LOGFILE
+LOGFILE="${MEDIATOMB_DIR}/log.txt"
+
+synouser --del ${USER}
+
+echo `date +"%Y/%m/%d %T` "Uninstalled MediaTomb" >> $LOGFILE
+
+exit 0

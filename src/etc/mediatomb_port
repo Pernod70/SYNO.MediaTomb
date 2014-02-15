@@ -1,0 +1,5 @@
+[mediatomb_port]
+title="MediaTomb"
+desc="MediaTomb"
+port_forward="no"
+dst.ports="50000/tcp"

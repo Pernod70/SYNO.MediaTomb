@@ -1,0 +1,50 @@
+#!/bin/sh
+
+# NON-PRIVILEGED USER TO RUN MEDIATOMB.
+USER=mediatomb
+
+# SYNOLOGY SERVICE TOOL
+SERVICETOOL="/usr/syno/bin/servicetool"
+
+# MEDIATOMB HOME
+export MEDIATOMB_DIR="`${SERVICETOOL} --get-alive-volume`/MediaTomb"
+
+# PATH TO LOGFILE
+LOGFILE="${MEDIATOMB_DIR}/log.txt"
+
+# CREATE MEDIATOMB USER
+synouser --get $USER
+if [ $? -ne 0 ]
+then
+    # Create user with random password
+    synouser --add $USER `uuidgen | cut -c-8` 'MediaTomb User' '' '' ''
+fi
+
+# CREATE THE MEDIATOMB HOME
+synoshare --get MediaTomb
+if [ $? -ne 0 ]
+then
+    # create shared folder
+    synoshare --add MediaTomb "MediaTomb Library" $MEDIATOMB_DIR "" "admin,mediatomb" "" 0 7
+else
+    # set rights on existing folder for new user
+    synoshare --setuser MediaTomb RW = admin,mediatomb
+fi
+
+# CREATE LOGFILE
+if [ ! -e ${LOGFILE} ]; then
+    touch ${LOGFILE}
+fi
+
+# CORRECT THE FILES OWNERSHIP
+chown -R $USER:root $SYNOPKG_PKGDEST
+chown -R $USER:root $MEDIATOMB_DIR
+chmod a+x $SYNOPKG_PKGDEST/mediatomb/mediatomb.sh $SYNOPKG_PKGDEST/mediatomb/usr/bin/mediatomb
+
+echo `date +"%Y/%m/%d %T"` "Installed MediaTomb" >> $LOGFILE
+echo `date +"%Y/%m/%d %T"` "Allow port 50000 in firewall to access the server configuration page" >> $LOGFILE
+
+# ADD PORT-FORWARDING CONFIG FILE
+${SERVICETOOL} --install-configure-file --package /var/packages/MediaTomb/target/etc/mediatomb_port
+
+exit 0

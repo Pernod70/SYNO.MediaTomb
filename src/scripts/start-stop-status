@@ -1,0 +1,102 @@
+#!/bin/sh
+
+# NON-PRIVILEGED USER TO RUN MEDIATOMB.
+USER=mediatomb
+
+# SYNOLOGY SERVICE TOOL
+SERVICETOOL="/usr/syno/bin/servicetool"
+
+# MEDIATOMB HOME
+export MEDIATOMB_DIR="`${SERVICETOOL} --get-alive-volume`/MediaTomb"
+
+# PATH TO LOGFILE
+LOGFILE="${MEDIATOMB_DIR}/log.txt"
+
+# PORT USED FOR WEB INTERFACE
+PORT=50000
+
+# PID FILENAME
+PID_FILE="$SYNOPKG_PKGDEST/mediatomb/mediatomb.pid"
+
+SZD_MEDIATOMB="/var/packages/MediaTomb"
+DESKTOP="/usr/syno/synoman/webman/3rdparty/MediaTomb"
+MediaTombTarget="${SZD_MEDIATOMB}/target"
+MediaTombUI="${MediaTombTarget}/ui"
+
+DSM_INDEX_ADD="/usr/syno/bin/pkgindexer_add"
+DSM_INDEX_DEL="/usr/syno/bin/pkgindexer_del"
+
+# MEDIATOMB VARIABLES
+export MEDIATOMB_DATADIR="$SYNOPKG_PKGDEST/mediatomb/usr/share/mediatomb"
+export MEDIATOMB_MAGIC_FILE="$SYNOPKG_PKGDEST/mediatomb/usr/share/file/magic"
+
+start_mediatomb ()
+{
+    # Launch the server in the background.
+	$SYNOPKG_PKGDEST/mediatomb/usr/bin/mediatomb -u $USER -d -p $PORT -m $MEDIATOMB_DIR -P $PID_FILE -l $LOGFILE
+}
+
+stop_mediatomb ()
+{
+    # Kill MediaTomb.
+    if [ -f "$PID_FILE" ]
+    then
+        kill `cat "$PID_FILE"`
+    fi
+}
+
+mediatomb_status ()
+{
+    if [ -f ${PID_FILE} ] && [ -d /proc/`cat ${PID_FILE}` ]; then
+        return 0
+    fi
+    return 1
+}
+
+case $1 in
+    start)
+	    rm -f $DESKTOP
+        if [ ! -z "$SYNOPKG_PKGNAME" -a -n "$SYNOPKG_DSM_VERSION_MAJOR" -a $SYNOPKG_DSM_VERSION_MAJOR -ge 4 ]; then
+            ln -sf ${MediaTombUI} ${DESKTOP}
+            ${DSM_INDEX_ADD} ${MediaTombUI}/index.conf
+        else
+            ln -sf ${MediaTombTarget}/desktop ${DESKTOP}
+        fi
+	    echo Starting MediaTomb ...
+        start_mediatomb
+        exit 0
+        ;;
+    stop)
+	    if [ -n "$SYNOPKG_DSM_VERSION_MAJOR" -a $SYNOPKG_DSM_VERSION_MAJOR -ge 4 ]; then 
+            ${DSM_INDEX_DEL} ${MediaTombUI}/index.conf
+        fi
+        if [ ! -z "$SYNOPKG_PKGNAME" ]; then
+            rm -f ${DESKTOP}
+        fi
+	    echo Stopping MediaTomb ...
+        stop_mediatomb
+        exit 0
+        ;;
+    status)
+        if mediatomb_status
+        then
+            echo MediaTomb is running
+            exit 0
+        else
+            echo MediaTomb is not running
+            exit 1
+        fi
+        ;;
+
+    log)
+	    if [ -f $LOGFILE ];
+		then
+           echo $LOGFILE
+		fi
+        exit 0
+        ;;
+    *)
+		echo "Usage: $0 {start|stop|status|log}" >&2
+		exit 1
+		;;
+esac
